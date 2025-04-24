@@ -1,0 +1,241 @@
+import tkinter as tk
+import random as rd
+
+row = 9
+column = 9
+grid = [[0 for col in range(column)] for ligne in range(row)]
+
+mistakes = 0
+elapsed_time = 0
+
+def num_valide(num, r, c):
+    for i in range(9):
+        if grid[r][i] == num or grid[i][c] == num:
+            return False
+    start_row, start_col = 3 * (r // 3), 3 * (c // 3)
+    for i in range(3):
+        for j in range(3):
+            if grid[start_row + i][start_col + j] == num:
+                return False
+    return True
+
+def solve(r=0, c=0):
+    if r == 9:
+        return True
+    if c == 9:
+        return solve(r + 1, 0)
+    nums = list(range(1, 10))
+    rd.shuffle(nums)
+    for num in nums:
+        if num_valide(num, r, c):
+            grid[r][c] = num
+            if solve(r, c + 1):
+                return True
+            grid[r][c] = 0
+    return False
+
+def copy_grid(g):
+    return [row[:] for row in g]
+
+def remove_numbers(grid):
+    positions = [(i, j) for i in range(9) for j in range(9)]
+    rd.shuffle(positions)
+
+    puzzle = copy_grid(grid)
+    num_to_remove = 81 - rd.randint(36, 40)
+
+    for i in range(num_to_remove):
+        r, c = positions[i]
+        puzzle[r][c] = 0
+
+    return puzzle
+
+solve()
+solution = copy_grid(grid)
+puzzle = remove_numbers(grid)
+
+def creation_grille():
+    global entries, entry
+    case_taille = 50
+    entries = []
+
+    space = 5
+
+    def validate_input(value):
+        return value == "" or (value.isdigit() and len(value) == 1 and value != "0")
+
+    valid_com = window.register(validate_input)
+
+    for row in range(9):
+        y_space = row * case_taille + (row // 3) * space
+        row_entries = []
+        for col in range(9):
+            x_space = col * case_taille + (col // 3) * space
+            x = 2 + x_space + case_taille / 2
+            y = 2 + y_space + case_taille / 2
+
+            entry = tk.Entry(window, justify="center", font=("Tekton Pro", 20),
+                             fg='black', bg="#f2f2f2", validate="key", validatecommand=(valid_com, "%P"))
+
+            canva.create_window(x, y, window=entry, width=case_taille, height=case_taille)
+            row_entries.append(entry)
+
+            if puzzle[row][col] != 0:
+                entry.insert(tk.END, str(puzzle[row][col]))
+                entry.config(state="readonly")
+            else:
+                entry.bind("<FocusOut>", lambda e, r=row, c=col: check_entry(e, r, c))
+                entry.config(fg="#03254c")
+
+        entries.append(row_entries)
+
+def check_entry(event, r, c):
+    entries[r][c].config(bg="#f2f2f2", fg="#03254c", font=("Tekton Pro", 20, "bold"))
+    user_input = event.widget.get()
+    if user_input.isdigit() and 1 <= int(user_input) <= 9:
+        if int(user_input) != solution[r][c]:
+            increment_mistakes()
+            entries[r][c].config(bg="#F75C5C", fg="#f2f2f2", font=("Tekton Pro", 20, "bold"))
+
+def show_solution():
+    global parametre
+    for row in range(9):
+        for col in range(9):
+            entries[row][col].config(state="normal")
+            entries[row][col].insert(0, str(solution[row][col]))
+            entries[row][col].config(state="readonly")
+    parametre.destroy()
+
+def increment_mistakes():
+    global mistakes
+    mistakes += 1
+    mistakes_label.config(text=f"fautes: {mistakes}")
+
+def format_timer(time: int):
+    h = time // 3600
+    m = (time % 3600) // 60
+    s = (time % 3600) % 60
+    return f"{h}:{m:0>2}:{s:0>2}"
+
+def update_timer():
+    global elapsed_time
+    elapsed_time += 1
+    timer_label.config(text=format_timer(elapsed_time))
+    window.after(1000, update_timer)
+
+def reset_puzzle():
+    global puzzle
+    solve()
+    solution = copy_grid(grid)
+    puzzle = remove_numbers(grid)
+    for row in range(9):
+        for col in range(9):
+            entries[row][col].delete(0, tk.END)
+            if puzzle[row][col] != 0:
+                entries[row][col].insert(tk.END, str(puzzle[row][col]))
+                entries[row][col].config(state="readonly")
+            else:
+                entries[row][col].config(state="normal")
+
+def reset_game():
+    global elapsed_time, mistakes
+    elapsed_time = 0
+    mistakes = 0
+    timer_label.config(text="0:00:00")
+    mistakes_label.config(text="Mistakes: 0")
+    reset_puzzle()
+
+def menu():
+    global parametre
+    parametre = tk.Canvas(window, width=250, height=325, bg='#005f63', highlightthickness=0)
+    parametre.place(relx=0.5, rely=0.5, anchor="center")
+
+    quitter = tk.Button(parametre, text="Quitter", font=("Tekton Pro", "15", "bold"), borderwidth=0, command=premiere_page,
+                        bg="#005f63", fg="#f2f2f2", activebackground= "#005f63", activeforeground="#f2f2f2")
+    grille = tk.Button(parametre, text="Nouvelle grille", font=("Tekton Pro", "15", "bold"), borderwidth=0, command=nouvelle_grille,
+                       bg="#005f63", fg="#f2f2f2", activebackground= "#005f63", activeforeground="#f2f2f2")
+    resoudre = tk.Button(parametre, text="Résoudre la grille", font=("Tekton Pro", "15", "bold"), borderwidth=0, command=show_solution,
+                         bg="#005f63", fg="#f2f2f2", activebackground= "#005f63", activeforeground="#f2f2f2")
+
+    resoudre.place(relx=0.5, rely=0.3, anchor="center")
+    grille.place(relx=0.5, rely=0.5, anchor="center")
+    quitter.place(relx=0.5, rely=0.7, anchor="center")
+
+def nouvelle_grille():
+    reset_game()
+    parametre.destroy()
+
+def premiere_page():
+    window.geometry("550x750")
+    window.minsize(480, 360)
+    window.config(background='#047274')
+    window.iconbitmap("logo.ico")
+
+    global canva, sudoku_title, rules, astuce, version, goodluck, play_button
+
+    canva = tk.Canvas(window, width=460, height=650, bg='#f2f2f2')
+
+    sudoku_title = tk.Label(canva, text="SUDOKU", font=("Tekton Pro", "50", "bold"), fg="#047274")
+    goodluck = tk.Label(canva, text="bonne chance!", font=("Tekton Pro", "15", "bold"), fg="#047274")
+
+    regles = "Le but du jeu est de remplir des cases\n avec des chiffres" \
+             "allant de 1 à 9 en veillant\n toujours à ce qu'un même chiffre ne figure\n" \
+             "qu'une seule fois par colonne, par ligne,\n et par carré de neuf cases 9x9."
+
+    rules = tk.Label(canva, text=regles, font=("Tekton Pro", "15", "bold"), fg="black")
+
+    astuce = tk.Label(canva, text="🎯 Astuce : Utilisez les touches 1 à 9 pour remplir les cases !",
+                      font=("Tekton Pro", "10"), fg="black")
+    version = tk.Label(canva, text="version 1.5.2", font=("Tekton Pro", "12"), fg="black")
+
+    canva.place(relx=0.5, rely=0.07, anchor="n")
+    sudoku_title.place(relx=0.5, rely=0.2, anchor="center")
+    goodluck.place(relx=0.5, rely=0.5, anchor="center")
+    rules.place(relx=0.5, rely=0.65, anchor="center")
+    astuce.place(relx=0.5, rely=0.8, anchor="center")
+    version.place(relx=0.5, rely=0.9, anchor="center")
+
+    play = tk.PhotoImage(file="tools/play.png")
+    play_button = tk.Button(window, image=play, command=deuxieme_page, borderwidth=0)
+    play_button.image = play
+    play_button.place(relx=0.5, rely=0.39, anchor="center")
+
+def deuxieme_page():
+    sudoku_title.destroy()
+    rules.destroy()
+    play_button.destroy()
+    astuce.destroy()
+    version.destroy()
+    goodluck.destroy()
+
+    canva.config(width=460, height=460, bg="#047274")
+    canva.place(relx=0.5, rely=0.2, anchor="n")
+
+    global timer_label, elapsed_time, mistakes_label
+    elapsed_time = 0
+    timer_label = tk.Label(window, text="0:00:00", font=("Tekton Pro", 16), bg="#047274", fg="#f2f2f2")
+    timer_label.place(relx=0.5, rely=0.11, anchor="center")
+
+    mistakes_label = tk.Label(window, text="fautes: 0", font=("Tekton Pro", 16), bg="#047274", fg="#f2f2f2")
+    mistakes_label.place(relx=0.5, rely=0.91, anchor="center")
+
+    hint = tk.PhotoImage(file="tools/hint.png")
+    hint_button = tk.Button(window, image=hint, borderwidth=0)
+    hint_button.image = hint
+    hint_button.place(relx=0.2, rely=0.08)
+
+    menuP = tk.PhotoImage(file="tools/menu.png")
+    menuP_button = tk.Button(window, image=menuP, borderwidth=0, command=menu)
+    menuP_button.image = menuP
+    menuP_button.place(relx=0.12, rely=0.08)
+
+    update_timer()
+    creation_grille()
+
+window = tk.Tk()
+window.title("Sudoku")
+window.resizable(False, False)
+
+premiere_page()
+
+window.mainloop()
