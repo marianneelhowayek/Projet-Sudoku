@@ -130,12 +130,11 @@ def reset_puzzle():
     puzzle = remove_numbers(grid)
     for row in range(9):
         for col in range(9):
+            entries[row][col].config(bg="#f2f2f2", fg="#03254c", state="normal")  # Remet les couleurs par défaut
             entries[row][col].delete(0, tk.END)
             if puzzle[row][col] != 0:
                 entries[row][col].insert(tk.END, str(puzzle[row][col]))
-                entries[row][col].config(state="readonly")
-            else:
-                entries[row][col].config(state="normal")
+                entries[row][col].config(state="readonly", fg="black")
 
 def reset_game():
     global elapsed_time, mistakes
@@ -164,6 +163,46 @@ def menu():
 def nouvelle_grille():
     reset_game()
     parametre.destroy()
+def check_entry(event, r, c):
+    entries[r][c].config(bg="#f2f2f2", fg="#03254c", font=("Tekton Pro", 20, "bold"))
+    user_input = event.widget.get()
+
+    if user_input.isdigit() and 1 <= int(user_input) <= 9:
+        conflits = check_conflit_sudoku(r, c, user_input)
+
+        
+        if conflits:
+            increment_mistakes()
+            entries[r][c].config(bg="#F75C5C", fg="#f2f2f2")  
+            for rr, cc in conflits:
+                entries[rr][cc].config(bg="#FF9999")  
+        else:
+    
+            entries[r][c].config(bg="#d4edda")
+
+def check_conflit_sudoku(r, c, val):
+    conflits = []
+
+    # Vérifie la ligne
+    for j in range(9):
+        if j != c and entries[r][j].get() == val:
+            conflits.append((r, j))
+
+    # Vérifie la colonne
+    for i in range(9):
+        if i != r and entries[i][c].get() == val:
+            conflits.append((i, c))
+
+    # Vérifie le bloc 3x3
+    start_row, start_col = 3 * (r // 3), 3 * (c // 3)
+    for i in range(3):
+        for j in range(3):
+            rr, cc = start_row + i, start_col + j
+            if (rr, cc) != (r, c) and entries[rr][cc].get() == val:
+                conflits.append((rr, cc))
+
+    return conflits
+
 
 def premiere_page():
     window.geometry("550x750")
