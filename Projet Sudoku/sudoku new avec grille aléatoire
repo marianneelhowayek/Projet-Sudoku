@@ -96,6 +96,8 @@ def check_entry(event, r, c):
         if int(user_input) != solution[r][c]:
             increment_mistakes()
             entries[r][c].config(bg="#F75C5C", fg="#f2f2f2", font=("Tekton Pro", 20, "bold"))
+    check_game_completion()
+
 
 def show_solution():
     global parametre
@@ -130,11 +132,12 @@ def reset_puzzle():
     puzzle = remove_numbers(grid)
     for row in range(9):
         for col in range(9):
-            entries[row][col].config(bg="#f2f2f2", fg="#03254c", state="normal")  # Remet les couleurs par défaut
             entries[row][col].delete(0, tk.END)
             if puzzle[row][col] != 0:
                 entries[row][col].insert(tk.END, str(puzzle[row][col]))
-                entries[row][col].config(state="readonly", fg="black")
+                entries[row][col].config(state="readonly")
+            else:
+                entries[row][col].config(state="normal")
 
 def reset_game():
     global elapsed_time, mistakes
@@ -151,7 +154,7 @@ def menu():
 
     quitter = tk.Button(parametre, text="Quitter", font=("Tekton Pro", "15", "bold"), borderwidth=0, command=premiere_page,
                         bg="#005f63", fg="#f2f2f2", activebackground= "#005f63", activeforeground="#f2f2f2")
-    grille = tk.Button(parametre, text="Nouvelle grille", font=("Tekton Pro", "15", "bold"), borderwidth=0, command=nouvelle_grille,
+    grille = tk.Button(parametre, text="Nouvelle grille", font=("Tekton Pro", "15", "bold"), borderwidth=0,
                        bg="#005f63", fg="#f2f2f2", activebackground= "#005f63", activeforeground="#f2f2f2")
     resoudre = tk.Button(parametre, text="Résoudre la grille", font=("Tekton Pro", "15", "bold"), borderwidth=0, command=show_solution,
                          bg="#005f63", fg="#f2f2f2", activebackground= "#005f63", activeforeground="#f2f2f2")
@@ -159,50 +162,6 @@ def menu():
     resoudre.place(relx=0.5, rely=0.3, anchor="center")
     grille.place(relx=0.5, rely=0.5, anchor="center")
     quitter.place(relx=0.5, rely=0.7, anchor="center")
-
-def nouvelle_grille():
-    reset_game()
-    parametre.destroy()
-def check_entry(event, r, c):
-    entries[r][c].config(bg="#f2f2f2", fg="#03254c", font=("Tekton Pro", 20, "bold"))
-    user_input = event.widget.get()
-
-    if user_input.isdigit() and 1 <= int(user_input) <= 9:
-        conflits = check_conflit_sudoku(r, c, user_input)
-
-        
-        if conflits:
-            increment_mistakes()
-            entries[r][c].config(bg="#F75C5C", fg="#f2f2f2")  
-            for rr, cc in conflits:
-                entries[rr][cc].config(bg="#FF9999")  
-        else:
-    
-            entries[r][c].config(bg="#d4edda")
-
-def check_conflit_sudoku(r, c, val):
-    conflits = []
-
-    # Vérifie la ligne
-    for j in range(9):
-        if j != c and entries[r][j].get() == val:
-            conflits.append((r, j))
-
-    # Vérifie la colonne
-    for i in range(9):
-        if i != r and entries[i][c].get() == val:
-            conflits.append((i, c))
-
-    # Vérifie le bloc 3x3
-    start_row, start_col = 3 * (r // 3), 3 * (c // 3)
-    for i in range(3):
-        for j in range(3):
-            rr, cc = start_row + i, start_col + j
-            if (rr, cc) != (r, c) and entries[rr][cc].get() == val:
-                conflits.append((rr, cc))
-
-    return conflits
-
 
 def premiere_page():
     window.geometry("550x750")
@@ -238,6 +197,28 @@ def premiere_page():
     play_button = tk.Button(window, image=play, command=deuxieme_page, borderwidth=0)
     play_button.image = play
     play_button.place(relx=0.5, rely=0.39, anchor="center")
+def show_final_message():
+    msg = f"🎉 Bravo !\nVous avez terminé avec {mistakes} faute(s) en {format_timer(elapsed_time)}."
+    final = tk.Toplevel(window)
+    final.title("Partie terminée")
+    final.geometry("300x150")
+    final.config(bg="#047274")
+
+    label = tk.Label(final, text=msg, font=("Tekton Pro", 14), fg="#f2f2f2", bg="#047274", justify="center")
+    label.pack(expand=True)
+
+    ok_button = tk.Button(final, text="OK", font=("Tekton Pro", 12), command=final.destroy, bg="#f2f2f2", fg="#047274")
+    ok_button.pack(pady=10)
+def check_game_completion():
+    for r in range(9):
+        for c in range(9):
+            if puzzle[r][c] == 0:
+                val = entries[r][c].get()
+                if not val.isdigit() or int(val) != solution[r][c]:
+                    return False
+    show_final_message()
+    return True
+
 
 def deuxieme_page():
     sudoku_title.destroy()
