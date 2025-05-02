@@ -4,7 +4,7 @@ from datetime import datetime
 import random as rd
 import json 
 import os
-timer_id = None  # Variable pour le timer
+timer_id = None 
 row = 9
 column = 9
 grille = [[0 for col in range(column)] for ligne in range(row)]
@@ -94,6 +94,49 @@ def creation_grille():
 
         entries.append(row_entries)
 
+def est_valide(grille, ligne, colonne, valeur):
+    if valeur in grille[ligne]:
+        return False
+    if valeur in [grille[i][colonne] for i in range(9)]:
+        return False
+    ligne_debut = (ligne // 3) * 3
+    colonne_debut = (colonne // 3) * 3
+    for i in range(ligne_debut, ligne_debut + 3):
+        for j in range(colonne_debut, colonne_debut + 3):
+            if grille[i][j] == valeur:
+                return False
+    return True
+
+def remplir_grille(grille):
+    for ligne in range(9):
+        for colonne in range(9):
+            if grille[ligne][colonne] == 0: 
+                valeurs_possibles = list(range(1, 10))
+                rd.shuffle(valeurs_possibles)  
+                for valeur in valeurs_possibles:
+                    if est_valide(grille, ligne, colonne, valeur):
+                        grille[ligne][colonne] = valeur
+                        if remplir_grille(grille):
+                            return True
+                        grille[ligne][colonne] = 0  
+                return False  
+    return True
+
+def generer_grille_sudoku(): 
+    grille = [[0 for _ in range(9)] for _ in range(9)]  
+    remplir_grille(grille)
+    return grille
+
+def vider_cases(grille, nombre_cases_a_vider=40):
+    cases_vides = 0
+    while cases_vides < nombre_cases_a_vider:
+        ligne = rd.randint(0, 8)
+        colonne = rd.randint(0, 8)
+        if grille[ligne][colonne] != 0:
+            grille[ligne][colonne] = 0
+            cases_vides += 1
+    return grille
+
 def update_focus(r, c):
     global r1, c1
     r1 = r
@@ -117,6 +160,12 @@ def fin_du_jeu():
                     return False
     message_final()
     return True
+
+def update_focus(r, c):
+    global r1, c1
+    r1 = r
+    c1 = c
+
                 
 def sauvegarder_grille():
     nom = simpledialog.askstring("Nom de la sauvegarde", "Choisissez un nom pour la sauvegarde :")
@@ -171,10 +220,12 @@ def increment_erreurs():
     erreurs += 1
     erreur_label.config(text=f"fautes: {erreurs}")
 
+
 def aide():
     global r1, c1
     entries[r1][c1].insert(tk.END, str(solution[r1][c1]))
     entries[r1][c1].config(bg="#fccf55", fg="#03254c", font=("Tekton Pro", 20, "bold"))
+    
 
 def format_timer(time: int):
     h = time // 3600
