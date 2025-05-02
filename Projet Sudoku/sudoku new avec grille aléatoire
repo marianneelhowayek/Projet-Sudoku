@@ -1,6 +1,9 @@
 import tkinter as tk
+from tkinter import simpledialog
+from datetime import datetime
 import random as rd
 import json 
+import os
 timer_id = None  # Variable pour le timer
 row = 9
 column = 9
@@ -116,6 +119,15 @@ def fin_du_jeu():
     return True
                 
 def sauvegarder_grille():
+    nom = simpledialog.askstring("Nom de la sauvegarde", "Choisissez un nom pour la sauvegarde :")
+    if not nom:
+        return
+    
+    if not os.path.exists("saves"):
+        os.makedirs("saves")
+
+    nom_fichier = f"saves/{nom}.json"
+
     etat = {
         "cases": [],
         "solution": solution,
@@ -131,7 +143,7 @@ def sauvegarder_grille():
             ligne.append({"val": val, "bg": couleur})
         etat["cases"].append(ligne)
 
-    with open("sudoku_sauvegarde.json", "w") as fichier:
+    with open(nom_fichier, "w") as fichier:
         json.dump(etat, fichier)
 
 def message_final():
@@ -221,37 +233,59 @@ def reset_game():
     reset_grille()
 
 def charger_sauvegarde():
-    global erreurs, duree, solution
-    stop_timer()
+    if not os.path.exists("saves"):
+        return
+    
+    fichiers = os.listdir("saves")
+    fichiers = [f for f in fichiers if f.endswith(".json")]
 
-    creation_grille()  
+    if not fichiers:
+        return
+    
+    # Demander à l'utilisateur de choisir dans une liste
+    nom = simpledialog.askstring("Charger une sauvegarde", "Nom du fichier à charger :\n" + "\n".join(fichiers))
+    if not nom:
+        return
+    if not nom.endswith(".json"):
+        nom += ".json"
+    
+    chemin = os.path.join("saves", nom)
 
-    with open("sudoku_sauvegarde.json", "r") as fichier:
+    if not os.path.exists(chemin):
+        print("Fichier introuvable.")
+        return
+
+    with open(chemin, "r") as fichier:
         etat = json.load(fichier)
-        erreurs = etat["erreurs"]
-        duree = etat["duree"]
-        solution = etat["solution"]
+        charger_donnees(etat)
 
-        erreur_label.config(text=f"fautes: {erreurs}")
-        timer_label.config(text=format_timer(duree))
+def charger_donnees(etat):
+    global erreurs, duree, solution
+    erreurs = etat["erreurs"]
+    duree = etat["duree"]
+    solution = etat["solution"]
 
-        for i in range(9):
-            for j in range(9):
-                entry = entries[i][j]
-                entry.config(state="normal")
-                entry.delete(0, tk.END)
-                case = etat["cases"][i][j]
-                val = case["val"]
-                couleur = case["bg"]
+    erreur_label.config(text=f"fautes: {erreurs}")
+    timer_label.config(text=format_timer(duree))
 
-                if val != "":
-                    entry.insert(0, val)
-                entry.config(bg=couleur)
+    for i in range(9):
+        for j in range(9):
+            entry = entries[i][j]
+            entry.config(state="normal")
+            entry.delete(0, tk.END)
+            case = etat["cases"][i][j]
+            val = case["val"]
+            couleur = case["bg"]
 
-                if val != "" and couleur == "#f2f2f2":
-                    entry.config(state="readonly")
+            if val != "":
+                entry.insert(0, val)
+            entry.config(bg=couleur)
+
+            if val != "" and couleur == "#f2f2f2":
+                entry.config(state="readonly")
 
     update_timer()
+
 
  #ne fonctionne pas
    
