@@ -1,9 +1,14 @@
+# import
+
 import tkinter as tk
 from tkinter import simpledialog
 from datetime import datetime
 import random as rd
-import json 
+import json
 import os
+
+# grille
+
 timer_id = None 
 row = 9
 column = 9
@@ -46,7 +51,7 @@ def enlever_nombres(grille):
     rd.shuffle(positions)
 
     tableau = copier_grille(grille)
-    num_to_remove = 81 - rd.randint(36, 40)
+    num_to_remove = 40
 
     for i in range(num_to_remove):
         r, c = positions[i]
@@ -87,55 +92,16 @@ def creation_grille():
             if tableau[row][col] != 0:
                 entry.insert(tk.END, str(tableau[row][col]))
                 entry.config(state="readonly")
+
+                entry.bind("<Button-1>", lambda e, val=tableau[row][col]: highlight_same_numbers(val))
+
             else:
                 entry.bind("<FocusOut>", lambda e, r=row, c=col: check_entry(e, r, c))
                 entry.config(fg="#03254c")
                 entry.bind("<FocusIn>", lambda e, r=row, c=col: update_focus(r, c))
+                entry.bind("<Button-1>", lambda e, r=row, c=col: on_click_editable(e, r, c))
 
         entries.append(row_entries)
-
-def est_valide(grille, ligne, colonne, valeur):
-    if valeur in grille[ligne]:
-        return False
-    if valeur in [grille[i][colonne] for i in range(9)]:
-        return False
-    ligne_debut = (ligne // 3) * 3
-    colonne_debut = (colonne // 3) * 3
-    for i in range(ligne_debut, ligne_debut + 3):
-        for j in range(colonne_debut, colonne_debut + 3):
-            if grille[i][j] == valeur:
-                return False
-    return True
-
-def remplir_grille(grille):
-    for ligne in range(9):
-        for colonne in range(9):
-            if grille[ligne][colonne] == 0: 
-                valeurs_possibles = list(range(1, 10))
-                rd.shuffle(valeurs_possibles)  
-                for valeur in valeurs_possibles:
-                    if est_valide(grille, ligne, colonne, valeur):
-                        grille[ligne][colonne] = valeur
-                        if remplir_grille(grille):
-                            return True
-                        grille[ligne][colonne] = 0  
-                return False  
-    return True
-
-def generer_grille_sudoku(): 
-    grille = [[0 for _ in range(9)] for _ in range(9)]  
-    remplir_grille(grille)
-    return grille
-
-def vider_cases(grille, nombre_cases_a_vider=40):
-    cases_vides = 0
-    while cases_vides < nombre_cases_a_vider:
-        ligne = rd.randint(0, 8)
-        colonne = rd.randint(0, 8)
-        if grille[ligne][colonne] != 0:
-            grille[ligne][colonne] = 0
-            cases_vides += 1
-    return grille
 
 def update_focus(r, c):
     global r1, c1
@@ -151,6 +117,88 @@ def check_entry(event, r, c):
             entries[r][c].config(bg="#F75C5C", fg="#f2f2f2", font=("Tekton Pro", 20, "bold"))
     fin_du_jeu()
 
+def highlight_same_numbers(chiffre):
+    for r in range(9):
+        for c in range(9):
+            val = entries[r][c].get()
+            if val == str(chiffre):
+                entries[r][c].config(highlightthickness=2, highlightbackground="#03254c")
+            else:
+                entries[r][c].config(highlightthickness=0)
+
+def on_click_editable(event, r, c):
+    val = entries[r][c].get()
+    if val.isdigit():
+        highlight_same_numbers(val)
+    else:
+        highlight_same_numbers(None)
+
+# "paramètres de la grille" : erreurs, aides, temps
+
+def increment_erreurs():
+    global erreurs
+    erreurs += 1
+    erreur_label.config(text=f"fautes: {erreurs}")
+
+def aide():
+    global r1, c1
+    entries[r1][c1].insert(tk.END, str(solution[r1][c1]))
+    entries[r1][c1].config(bg="#fccf55", fg="#03254c", font=("Tekton Pro", 20, "bold"))
+
+def format_timer(time: int):
+    h = time // 3600
+    m = (time % 3600) // 60
+    s = (time % 3600) % 60
+    return f"{h}:{m:0>2}:{s:0>2}"
+
+def update_timer():
+    global duree, timer_id
+    duree += 1
+    timer_label.config(text=format_timer(duree))
+    timer_id = window.after(1000, update_timer)
+
+def stop_timer():
+    global timer_id
+    if timer_id is not None:
+        window.after_cancel(timer_id)
+        timer_id = None
+
+# re-générer
+
+def reset_grille():
+    global tableau, duree, erreurs
+    stop_timer()
+    duree = 0
+    erreurs = 0
+
+    solve()
+    copier_grille(grille)
+    tableau = enlever_nombres(grille)
+
+    for row in range(9):
+        for col in range(9):
+            entries[row][col].config(state="normal", bg="#f2f2f2", fg="#03254c")
+            entries[row][col].delete(0, tk.END)
+            if tableau[row][col] != 0:
+                entries[row][col].insert(tk.END, str(tableau[row][col]))
+                entries[row][col].config(state="readonly")
+
+    erreur_label.config(text="fautes: 0")
+    timer_label.config(text="0:00:00")
+
+    parametre.destroy()
+    update_timer()
+
+def reset_game():
+    global duree, erreurs
+    duree = 0
+    erreurs = 0
+    timer_label.config(text="0:00:00")
+    erreur_label.config(text="Erreurs: 0")
+    reset_grille()
+
+# fin
+
 def fin_du_jeu():
     for r in range(9):
         for c in range(9):
@@ -161,12 +209,26 @@ def fin_du_jeu():
     message_final()
     return True
 
-def update_focus(r, c):
-    global r1, c1
-    r1 = r
-    c1 = c
+def message_final():
+    global final
+    
+    final = tk.Canvas(window, width=350, height=275, bg='#005f63', highlightthickness=0)
+    final.place(relx=0.5, rely=0.5, anchor="center")
 
-                
+    msg = f"🎉 Bravo !\nVous avez terminé\n avec {erreurs} faute(s) en {format_timer(duree)}"
+    message = tk.Label(final, text=msg, font=("Tekton Pro", 14, "bold"), fg="#f2f2f2", bg="#005f63", justify="center")
+
+    menu_button = tk.Button(final, text="Menu", font=("Tekton Pro", 15, "bold"), command=menu_bouton,
+                          bg="#005f63", fg="#f2f2f2", activebackground="#005f63", activeforeground="#f2f2f2", borderwidth=0)
+    sauvegarde_grille=tk.Button(final,text="Sauvegarder",font=("Tekton Pro", 15, "bold"), command=sauvegarder_grille,
+                                  bg="#005f63", fg="#f2f2f2", activebackground="#005f63", activeforeground="#f2f2f2", borderwidth=0)
+    
+    message.place(relx= 0.5, rely=0.15, anchor="n")
+    sauvegarde_grille.place(relx=0.5,rely=0.55,anchor="n")
+    menu_button.place(relx=0.5, rely=0.7, anchor="n")
+
+# sauvegarder
+
 def sauvegarder_grille():
     nom = simpledialog.askstring("Nom de la sauvegarde", "Choisissez un nom pour la sauvegarde :")
     if not nom:
@@ -194,94 +256,6 @@ def sauvegarder_grille():
 
     with open(nom_fichier, "w") as fichier:
         json.dump(etat, fichier)
-
-def message_final():
-
-    final = tk.Canvas(window, width=320, height=200, bg='#005f63', highlightthickness=0)
-    final.place(relx=0.5, rely=0.5, anchor="center")
-
-    msg = f"🎉 Bravo !\nVous avez terminé avec {erreurs} faute(s) en {format_timer(duree)}"
-    message = tk.Label(final, text=msg, font=("Tekton Pro", 14), fg="#f2f2f2", bg="#047274", justify="center")
-    message.place(relx= 0.5, rely=0.15, anchor="n")
-
-    menu_button = tk.Button(final, text="Menu", font=("Tekton Pro", 12, "bold"), command=menu,
-                          bg="#f2f2f2", fg="#047274", activebackground="#f2f2f2", activeforeground="#047274", borderwidth=0)
-    sauvegarde_grille=tk.Button(final,text="Sauvegarder",font=("Tekton Pro",12,"bold"),bg="#f2f2f2",command=sauvegarder_grille,
-                                  fg="#047274", activebackground="#f2f2f2", activeforeground="#047274", borderwidth=0)
-    rejouer=tk.Button(final,text="Rejouer",font=("Tekton Pro",12,"bold"),
-                      bg="#f2f2f2", fg="#047274", activebackground="#f2f2f2", activeforeground="#047274", borderwidth=0)
-    menu_button.place(relx=0.5, rely=0.35, anchor="n")
-    sauvegarde_grille.place(relx=0.5,rely=0.55,anchor="n")
-    rejouer.place(relx=0.5,rely=0.75,anchor="n")
-
-
-def increment_erreurs():
-    global erreurs
-    erreurs += 1
-    erreur_label.config(text=f"fautes: {erreurs}")
-
-
-def aide():
-    global r1, c1
-    entries[r1][c1].insert(tk.END, str(solution[r1][c1]))
-    entries[r1][c1].config(bg="#fccf55", fg="#03254c", font=("Tekton Pro", 20, "bold"))
-    
-
-def format_timer(time: int):
-    h = time // 3600
-    m = (time % 3600) // 60
-    s = (time % 3600) % 60
-    return f"{h}:{m:0>2}:{s:0>2}"
-
-
-
-def update_timer():
-    global duree, timer_id
-    duree += 1
-    timer_label.config(text=format_timer(duree))
-    timer_id = window.after(1000, update_timer)
-
-def stop_timer():
-    global timer_id
-    if timer_id is not None:
-        window.after_cancel(timer_id)
-        timer_id = None
-
-def reset_grille():
-    global tableau, duree, erreurs
-    stop_timer()
-    duree = 0
-    erreurs = 0
-
-    solve()
-    copier_grille(grille)
-    tableau = enlever_nombres(grille)
-
-    for row in range(9):
-        for col in range(9):
-            entries[row][col].config(state="normal", bg="#f2f2f2", fg="#03254c")
-            entries[row][col].delete(0, tk.END)
-            if tableau[row][col] != 0:
-                entries[row][col].insert(tk.END, str(tableau[row][col]))
-                entries[row][col].config(state="readonly")
-
-    erreur_label.config(text="fautes: 0")
-    timer_label.config(text="0:00:00")
-
-    parametre.destroy()
-    update_timer()         
-
-    
-
-   
-
-def reset_game():
-    global duree, erreurs
-    duree = 0
-    erreurs = 0
-    timer_label.config(text="0:00:00")
-    erreur_label.config(text="Erreurs: 0")
-    reset_grille()
 
 def charger_sauvegarde():
     if not os.path.exists("saves"):
@@ -337,41 +311,41 @@ def charger_donnees(etat):
 
     update_timer()
 
+# généralisation du jeu
 
- #ne fonctionne pas
-   
-
+def menu_bouton():
+    global final
+    final.destroy()
+    menu()
 
 def menu():
     global parametre
-    parametre = tk.Canvas(window, width=250, height=325, bg='#005f63', highlightthickness=0)
+    
+    parametre = tk.Canvas(window, width=300, height=400, bg='#005f63', highlightthickness=0)
     parametre.place(relx=0.5, rely=0.5, anchor="center")
 
-    quitter = tk.Button(parametre, text="Quitter", font=("Tekton Pro", "15", "bold"), borderwidth=0, command=premiere_page,
-                        bg="#005f63", fg="#047274", activebackground= "#005f63", activeforeground="#f2f2f2")
     nouvelle_grille = tk.Button(parametre, text="Nouvelle grille", font=("Tekton Pro", "15", "bold"), borderwidth=0,command=reset_grille,
-                       bg="#005f63", fg="#047274", activebackground= "#005f63", activeforeground="#f2f2f2")
-    fermer_menu=tk.Button(parametre,text="Fermer le menu", font=("Tekton Pro","12","bold"), borderwidth=0,
-                          command=parametre.destroy,bg="#005f63", fg="#047274", activebackground= "#005f63", activeforeground="#f2f2f2")
-    ancienne_grille=tk.Button(parametre,text="Continuer une ancienne grille",font=("Tekton Pro","12","bold"), borderwidth=0,
-                              command=charger_sauvegarde,bg="#005f63", fg="#047274", activebackground= "#005f63", activeforeground="#f2f2f2")
-    sauvegarde=tk.Button(parametre,text="Sauvegarder l'état de la grille",font=("Tekton Pro","12","bold"), borderwidth=0,
-                              command=sauvegarder_grille,bg="#005f63", fg="#047274", activebackground= "#005f63", activeforeground="#f2f2f2")
-    
-   
-    nouvelle_grille.place(relx=0.5, rely=0.1, anchor="center")
-    quitter.place(relx=0.5, rely=0.3, anchor="center")
-    fermer_menu.place(relx=0.5,rely=0.9,anchor="center")
-    ancienne_grille.place(relx=0.5,rely=0.7,anchor="center")
-    sauvegarde.place(relx=0.5,rely=0.5,anchor="center")
+                       bg="#005f63", fg="#f2f2f2", activebackground= "#005f63", activeforeground="#f2f2f2")
+    sauvegarde=tk.Button(parametre,text="Sauvegarder l'état de la grille",font=("Tekton Pro","15","bold"), borderwidth=0,
+                              command=sauvegarder_grille,bg="#005f63", fg="#f2f2f2", activebackground= "#005f63", activeforeground="#f2f2f2")
+    ancienne_grille=tk.Button(parametre,text="Continuer une ancienne grille",font=("Tekton Pro","15","bold"), borderwidth=0,
+                              command=charger_sauvegarde,bg="#005f63", fg="#f2f2f2", activebackground= "#005f63", activeforeground="#f2f2f2")
+    fermer_menu=tk.Button(parametre,text="Fermer le menu", font=("Tekton Pro","15","bold"), borderwidth=0,
+                          command=parametre.destroy,bg="#005f63", fg="#f2f2f2", activebackground= "#005f63", activeforeground="#f2f2f2")
+    quitter = tk.Button(parametre, text="Quitter", font=("Tekton Pro", "15", "bold"), borderwidth=0, command=premiere_page,
+                        bg="#005f63", fg="#f2f2f2", activebackground= "#005f63", activeforeground="#f2f2f2")
 
-
+    nouvelle_grille.place(relx=0.5, rely=0.2, anchor="center")
+    sauvegarde.place(relx=0.5,rely=0.35,anchor="center")
+    ancienne_grille.place(relx=0.5,rely=0.5,anchor="center")
+    fermer_menu.place(relx=0.5,rely=0.65,anchor="center")
+    quitter.place(relx=0.5, rely=0.8, anchor="center")
 
 def premiere_page():
     window.geometry("550x750")
     window.minsize(480, 360)
     window.config(background='#047274')
-    window.iconbitmap("logo.ico")
+    window.iconbitmap("tools/logo.ico")
 
     global canva, sudoku_titre, rules, astuce, version, goodluck, play_button
 
@@ -435,7 +409,6 @@ def deuxieme_page():
     update_timer()
 
     creation_grille()
-
 
 window = tk.Tk()
 window.title("Sudoku")
